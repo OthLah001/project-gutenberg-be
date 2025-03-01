@@ -4,13 +4,14 @@ from django.db import models
 
 class Book(models.Model):
     gutenberg_id = models.IntegerField(db_index=True, unique=True)
+    content = models.TextField(null=True, blank=True)
     added_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
 
 class BookMetadata(models.Model):
     book = models.ForeignKey(
-        "books.Book", on_delete=models.PROTECT, related_name="metadata"
+        "books.Book", on_delete=models.PROTECT, related_name="metadata", unique=True
     )
     title = models.CharField(max_length=500, db_index=True)
     issued_date = models.DateField()
@@ -24,7 +25,7 @@ class BookMetadata(models.Model):
 
 class BookAnalysis(models.Model):
     book = models.ForeignKey(
-        "books.Book", on_delete=models.PROTECT, related_name="analysis"
+        "books.Book", on_delete=models.PROTECT, related_name="analysis", unique=True
     )
     summary = models.TextField()
     key_characters = models.JSONField()
