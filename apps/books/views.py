@@ -1,11 +1,16 @@
 from ninja import NinjaAPI
 
 from apps.books.models import Book, BookAnalysis, BookMetadata
-from apps.books.schemas import (BookAnalysisOutSchema, BookContentOutSchema,
-                                BookMetadataOutSchema)
+from apps.books.schemas import (
+    BookAnalysisOutSchema,
+    BookContentOutSchema,
+    BookMetadataOutSchema,
+)
 from config.ninja_utils.errors import NinjaError
+from config.ninja_utils.authentication import auth_bearer
 
-books_api = NinjaAPI()
+
+books_api = NinjaAPI(auth=auth_bearer)
 
 
 # Set custom exception handler
