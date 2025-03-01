@@ -19,5 +19,10 @@ from django.contrib import admin
 from django.urls import path
 
 from apps.books.views import books_api
+from apps.auth.views import auth_api
 
-urlpatterns = [path("admin/", admin.site.urls), path("api/books/", books_api.urls)]
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("api/books/", books_api.urls),
+    path("api/auth/", auth_api.urls),
+]
