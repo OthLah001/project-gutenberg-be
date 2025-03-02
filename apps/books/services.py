@@ -39,9 +39,11 @@ def analyse_book(gutenberg_id):
     from groq import Groq
 
     from apps.books.models import Book, BookAnalysis
-    from apps.books.utils import (FINAL_ANALYSIS_PROMPT_TEMPLATE,
-                                  TEXT_ANALYSIS_PROMPT_TEMPLATE,
-                                  split_text_evenly)
+    from apps.books.utils import (
+        FINAL_ANALYSIS_PROMPT_TEMPLATE,
+        TEXT_ANALYSIS_PROMPT_TEMPLATE,
+        split_text_evenly,
+    )
 
     # Get book content
 
@@ -121,15 +123,13 @@ def scrap_metadata(gutenberg_id):
     from apps.books.models import Book, BookMetadata
     from apps.books.utils import METADATA_FIELD_PAGE_TITLES
 
-    book = Book.objects.get(gutenberg_id=gutenberg_id)
-
     metadata_content = fetch_book_metadata(gutenberg_id)
     if metadata_content is None:
         return None
 
     # Convert html plain text to html
     html_content = html.fromstring(metadata_content)
-    book_metadata = BookMetadata(book=book)
+    book_metadata = BookMetadata(book__gutenberg_id=gutenberg_id)
 
     for field, data in METADATA_FIELD_PAGE_TITLES.items():
         th_texts = [

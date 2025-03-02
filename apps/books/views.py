@@ -1,16 +1,18 @@
 from ninja import NinjaAPI
+from django.utils import timezone
 
-from apps.books.models import Book, BookAnalysis, BookMetadata
+from apps.books.models import Book, BookAnalysis, BookMetadata, BookSearchHistory
 from apps.books.schemas import (
     BookAnalysisOutSchema,
     BookContentOutSchema,
     BookMetadataOutSchema,
+    BookSearchHistoryOutSchema,
 )
 from config.ninja_utils.errors import NinjaError
 from config.ninja_utils.authentication import auth_bearer
 
 
-books_api = NinjaAPI(auth=auth_bearer)
+books_api = NinjaAPI(auth=auth_bearer, urls_namespace="books")
 
 
 # Set custom exception handler
@@ -27,8 +29,8 @@ def handle_elham_error(request, exc: NinjaError):
 def get_book_content(request, gutenberg_id: int):
     from apps.books.services import fetch_book_content
 
-    book, created = Book.objects.get_or_create(gutenberg_id=gutenberg_id)
-    if created or not book.content:
+    books_qs = Book.objects.filter(gutenberg_id=gutenberg_id)
+    if books_qs.count() == 0:
         content = fetch_book_content(gutenberg_id)
 
         if content is None:
@@ -38,8 +40,16 @@ def get_book_content(request, gutenberg_id: int):
                 status_code=404,
             )
 
-        book.content = content
-        book.save()
+        book = Book.objects.create(gutenberg_id=gutenberg_id, content=content)
+    else:
+        book = books_qs.first()
+
+    history, created = BookSearchHistory.objects.get_or_create(
+        book=book, user=request.user
+    )
+    if not created:
+        history.searched_at = timezone.now()
+        history.save()
 
     return {"content": book.content}
 
@@ -55,6 +65,13 @@ def get_book_content(request, gutenberg_id: int):
         transaction.on_commit(lambda: scrap_metadata(gutenberg_id))
 
     metadata = metadata_qs.first()
+    if metadata is None:
+        raise NinjaError(
+            error_name="invalid_gutenberg_id",
+            message=f"Book with id {gutenberg_id} does not exist.",
+            status_code=404,
+        )
+
     return {
         "title": metadata.title,
         "issued_date": metadata.issued_date,
@@ -77,6 +94,13 @@ def get_book_content(request, gutenberg_id: int):
         transaction.on_commit(lambda: analyse_book(gutenberg_id))
 
     book_analysis = book_analysis_qs.first()
+    if book_analysis is None:
+        raise NinjaError(
+            error_name="invalid_gutenberg_id",
+            message=f"Book with id {gutenberg_id} does not exist.",
+            status_code=404,
+        )
+
     return {
         "summary": book_analysis.summary,
         "key_characters": book_analysis.key_characters,
@@ -86,3 +110,21 @@ def get_book_content(request, gutenberg_id: int):
         "character_relationships": book_analysis.character_relationships,
         "notable_quotes": book_analysis.notable_quotes,
     }
+
+
+@books_api.get("history/", response=list[BookSearchHistoryOutSchema])
+def get_book_content(request):
+    history_qs = (
+        BookSearchHistory.objects.filter(user=request.user)
+        .select_related("book")
+        .order_by("-searched_at")
+    )
+
+    return [
+        {
+            "title": h.book.metadata.title,
+            "gutenberg_id": h.book.gutenberg_id,
+            "searched_at": h.searched_at,
+        }
+        for h in history_qs
+    ]

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from apps.books.models import Book, BookAnalysis, BookMetadata
+from apps.books.models import Book, BookAnalysis, BookMetadata, BookSearchHistory
 
 
 @admin.register(Book)
@@ -16,3 +16,8 @@ class BookMetadataAdmin(admin.ModelAdmin):
 @admin.register(BookAnalysis)
 class BookAnalysisAdmin(admin.ModelAdmin):
     list_display = ["id", "book"]
+
+
+@admin.register(BookSearchHistory)
+class BookSearchHistoryAdmin(admin.ModelAdmin):
+    list_display = ["id", "book", "user", "searched_at"]

@@ -2,7 +2,7 @@ from ninja import NinjaAPI
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import authenticate
-from datetime import datetime
+from django.utils import timezone
 
 from config.ninja_utils.errors import NinjaError
 from apps.auth.schemas import (
@@ -14,7 +14,7 @@ from apps.auth.schemas import (
 from apps.auth.utils import create_jwt_token
 
 
-auth_api = NinjaAPI()
+auth_api = NinjaAPI(urls_namespace="auth")
 
 
 # Set custom exception handler
@@ -39,7 +39,7 @@ def login(request, data: LoginInSchema):
         )
 
     token = create_jwt_token(user.id)
-    user.last_login = datetime.now()
+    user.last_login = timezone.now()
     user.save()
 
     return {"token": token}
@@ -65,7 +65,7 @@ def signup(request, data: SignupInSchema):
     )
 
     token = create_jwt_token(user.id)
-    user.last_login = datetime.now()
+    user.last_login = timezone.now()
     user.save()
 
     return {"token": token}

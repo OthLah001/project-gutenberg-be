@@ -1,5 +1,5 @@
 from datetime import date
-
+from pydantic import AwareDatetime
 from ninja import Schema
 
 
@@ -25,3 +25,9 @@ class BookAnalysisOutSchema(Schema):
     topics: list[str]
     character_relationships: list[str]
     notable_quotes: list[str]
+
+
+class BookSearchHistoryOutSchema(Schema):
+    title: str
+    gutenberg_id: int
+    searched_at: AwareDatetime

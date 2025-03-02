@@ -27,6 +27,7 @@ class AuthBearer(HttpBearer):
                     status_code=404,
                 )
 
+            request.user = user
             return user
         except jwt.ExpiredSignatureError:
             raise NinjaError(
