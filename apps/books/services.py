@@ -39,11 +39,9 @@ def analyse_book(gutenberg_id):
     from groq import Groq
 
     from apps.books.models import Book, BookAnalysis
-    from apps.books.utils import (
-        FINAL_ANALYSIS_PROMPT_TEMPLATE,
-        TEXT_ANALYSIS_PROMPT_TEMPLATE,
-        split_text_evenly,
-    )
+    from apps.books.utils import (FINAL_ANALYSIS_PROMPT_TEMPLATE,
+                                  TEXT_ANALYSIS_PROMPT_TEMPLATE,
+                                  split_text_evenly)
 
     # Get book content
 
@@ -120,7 +118,7 @@ def scrap_metadata(gutenberg_id):
 
     from lxml import html
 
-    from apps.books.models import Book, BookMetadata
+    from apps.books.models import BookMetadata
     from apps.books.utils import METADATA_FIELD_PAGE_TITLES
 
     metadata_content = fetch_book_metadata(gutenberg_id)
@@ -158,3 +156,67 @@ def scrap_metadata(gutenberg_id):
 
     book_metadata.save()
     return book_metadata
+
+
+def fetch_gutenberg_catalog():
+    import csv
+    import io
+    from datetime import datetime
+
+    import requests
+    from langcodes import Language
+
+    from apps.books.models import Book, BookMetadata
+
+    def split_list_field(field_value):
+        if not field_value:
+            return []
+
+        # Split by semicolon and strip whitespace
+        return [item.strip() for item in field_value.split(";") if item.strip()]
+
+    url = "https://www.gutenberg.org/cache/epub/feeds/pg_catalog.csv"
+
+    try:
+        # Download the CSV file
+        response = requests.get(url)
+        response.raise_for_status()
+
+        # Parse the CSV content
+        csv_content = io.StringIO(response.text)
+        reader = csv.DictReader(csv_content)
+
+        # Process the data and create Book and BookMetadata instances
+        for row in reader:
+            # Skip rows without a Gutenberg ID
+            gutenberg_id = int(row.get("Text#", 0))
+            if gutenberg_id == 0:
+                continue
+
+            # Create or get the Book and BookMetadata instances
+            book, created = Book.objects.get_or_create(gutenberg_id=gutenberg_id)
+            book_metadata = BookMetadata.objects.filter(book=book).first()
+
+            # Skip if the metadata is already filled by the script
+            if book_metadata is None:
+                book_metadata = BookMetadata(book=book)
+            elif book_metadata.filled_by_script:
+                continue
+
+            # Fill the metadata fields
+            book_metadata.title = row.get("Title", "")
+            book_metadata.language = Language.make(
+                language=row.get("Language", "")
+            ).display_name()
+            book_metadata.locc = row.get("LoCC", "")
+            book_metadata.authors = split_list_field(row.get("Authors", ""))
+            book_metadata.subjects = split_list_field(row.get("Subjects", ""))
+            book_metadata.issued_date = datetime.strptime(
+                row.get("Issued", ""), "%Y-%m-%d"
+            ).date()
+            book_metadata.bookshelves = split_list_field(row.get("Bookshelves", ""))
+            book_metadata.filled_by_script = True
+            book_metadata.save()
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching catalog: {e}")

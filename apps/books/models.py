@@ -1,7 +1,6 @@
+from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
-from django.contrib.auth import get_user_model
-
 
 User = get_user_model()
 
@@ -17,7 +16,7 @@ class BookMetadata(models.Model):
     book = models.OneToOneField(
         "books.Book", on_delete=models.PROTECT, related_name="metadata"
     )
-    title = models.CharField(max_length=500, db_index=True)
+    title = models.CharField(max_length=1024, db_index=True)
     issued_date = models.DateField()
     language = models.CharField(max_length=100, db_index=True)
     authors = ArrayField(models.CharField(max_length=255), default=[])
