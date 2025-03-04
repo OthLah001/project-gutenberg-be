@@ -5,15 +5,19 @@ def create_book_instance(gutenberg_id):
     return book
 
 
-def fetch_book_content(gutenberg_id):
+def fetch_book_content(gutenberg_id, is_retry=False):
     import requests
 
-    url = f"https://www.gutenberg.org/files/{gutenberg_id}/{gutenberg_id}-0.txt"
+    url = f"https://www.gutenberg.org/files/{gutenberg_id}/{gutenberg_id}.txt"
+    if is_retry:
+        url = url.replace(".txt", "-0.txt")
 
     response = requests.get(url)
 
     if response.status_code == 200:
         return response.text
+    elif is_retry is False:
+        return fetch_book_content(gutenberg_id, is_retry=True)
 
     return None
 
@@ -44,18 +48,13 @@ def analyse_book(gutenberg_id):
                                   split_text_evenly)
 
     # Get book content
-
     book_content = fetch_book_content(gutenberg_id)
-
     if book_content is None:
         return None
 
     # Split book content into chunks
-
     book_chunks = split_text_evenly(book_content)
-
     groq = Groq(api_key=settings.GROQ_API_KEY)
-
     chunk_analyses_data = []
 
     for chunk in book_chunks:
@@ -79,7 +78,6 @@ def analyse_book(gutenberg_id):
         chunk_analyses_data.append(response.choices[0].message.content)
 
     # Merge the chunks into one result
-
     final_user_prompt = Template(FINAL_ANALYSIS_PROMPT_TEMPLATE).render(
         Context({"chunk_analyses_data": chunk_analyses_data})
     )
@@ -118,7 +116,7 @@ def scrap_metadata(gutenberg_id):
 
     from lxml import html
 
-    from apps.books.models import BookMetadata
+    from apps.books.models import Book, BookMetadata
     from apps.books.utils import METADATA_FIELD_PAGE_TITLES
 
     metadata_content = fetch_book_metadata(gutenberg_id)
@@ -127,7 +125,8 @@ def scrap_metadata(gutenberg_id):
 
     # Convert html plain text to html
     html_content = html.fromstring(metadata_content)
-    book_metadata = BookMetadata(book__gutenberg_id=gutenberg_id)
+    book, created = Book.objects.get_or_create(gutenberg_id=gutenberg_id)
+    book_metadata = BookMetadata(book=book)
 
     for field, data in METADATA_FIELD_PAGE_TITLES.items():
         th_texts = [

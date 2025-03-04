@@ -1,16 +1,13 @@
-from ninja import NinjaAPI
 from django.utils import timezone
+from ninja import NinjaAPI
 
-from apps.books.models import Book, BookAnalysis, BookMetadata, BookSearchHistory
-from apps.books.schemas import (
-    BookAnalysisOutSchema,
-    BookContentOutSchema,
-    BookMetadataOutSchema,
-    BookSearchHistoryOutSchema,
-)
-from config.ninja_utils.errors import NinjaError
+from apps.books.models import (Book, BookAnalysis, BookMetadata,
+                               BookSearchHistory)
+from apps.books.schemas import (BookAnalysisOutSchema, BookContentOutSchema,
+                                BookMetadataOutSchema,
+                                BookSearchHistoryOutSchema)
 from config.ninja_utils.authentication import auth_bearer
-
+from config.ninja_utils.errors import NinjaError
 
 books_api = NinjaAPI(auth=auth_bearer, urls_namespace="books")
 
@@ -30,7 +27,7 @@ def get_book_content(request, gutenberg_id: int):
     from apps.books.services import fetch_book_content
 
     books_qs = Book.objects.filter(gutenberg_id=gutenberg_id)
-    if books_qs.count() == 0:
+    if (count := books_qs.count()) == 0 or not books_qs.first().content:
         content = fetch_book_content(gutenberg_id)
 
         if content is None:
@@ -40,16 +37,9 @@ def get_book_content(request, gutenberg_id: int):
                 status_code=404,
             )
 
-        book = Book.objects.create(gutenberg_id=gutenberg_id, content=content)
-    else:
-        book = books_qs.first()
+        books_qs.update(content=content)
 
-    history, created = BookSearchHistory.objects.get_or_create(
-        book=book, user=request.user
-    )
-    if not created:
-        history.searched_at = timezone.now()
-        history.save()
+    book = books_qs.first()
 
     return {"content": book.content}
 
@@ -60,7 +50,8 @@ def get_book_content(request, gutenberg_id: int):
 
     from apps.books.services import scrap_metadata
 
-    metadata_qs = BookMetadata.objects.filter(book__gutenberg_id=gutenberg_id)
+    book, created = Book.objects.get_or_create(gutenberg_id=gutenberg_id)
+    metadata_qs = BookMetadata.objects.filter(book=book)
     if metadata_qs.count() == 0:
         transaction.on_commit(lambda: scrap_metadata(gutenberg_id))
 
@@ -71,6 +62,13 @@ def get_book_content(request, gutenberg_id: int):
             message=f"Book with id {gutenberg_id} does not exist.",
             status_code=404,
         )
+
+    history, created = BookSearchHistory.objects.get_or_create(
+        book=book, user=request.user
+    )
+    if not created:
+        history.searched_at = timezone.now()
+        history.save()
 
     return {
         "title": metadata.title,
@@ -83,15 +81,15 @@ def get_book_content(request, gutenberg_id: int):
     }
 
 
-@books_api.get("{gutenberg_id}/analyse/", response=BookAnalysisOutSchema)
+@books_api.get("{gutenberg_id}/analysis/", response=BookAnalysisOutSchema)
 def get_book_content(request, gutenberg_id: int):
-    from django.db import transaction
+    pass
 
     from apps.books.services import analyse_book
 
     book_analysis_qs = BookAnalysis.objects.filter(book__gutenberg_id=gutenberg_id)
     if book_analysis_qs.count() == 0:
-        transaction.on_commit(lambda: analyse_book(gutenberg_id))
+        analyse_book(gutenberg_id)
 
     book_analysis = book_analysis_qs.first()
     if book_analysis is None:
