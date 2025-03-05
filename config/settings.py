@@ -66,7 +66,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:4200",
     "http://127.0.0.1:8000",
     "https://project-gutenberg-be-9cd0ffe65c53.herokuapp.com",
-    "https://project-gutenberg-fe-49404a1d4142.herokuapp.com/",
+    "https://project-gutenberg-fe-49404a1d4142.herokuapp.com",
 ]
 
 ROOT_URLCONF = "config.urls"
