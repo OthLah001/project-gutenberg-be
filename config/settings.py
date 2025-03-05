@@ -163,6 +163,7 @@ CELERY_RESULT_BACKEND = env("REDIS_URL")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_BROKER_USE_SSL = {
+    "ssl": IS_LIVE_ENV,
     "ssl_cert_reqs": ssl.CERT_NONE if IS_LIVE_ENV else None,
     "ssl_keyfile": None,
     "ssl_certfile": None,
