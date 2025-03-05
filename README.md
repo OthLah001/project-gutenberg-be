@@ -27,6 +27,7 @@ Make sure you have:
 
 - **PostgreSQL** (version 12 or later) → [Download Here](https://www.postgresql.org/download/)
 - **Python** (version 3.9 or later) → [Download Here](https://www.python.org/downloads/
+- **Redis** (version 6.0 or later) → [Download Here](https://redis.io/downloads/)
 
 ### **Create a Python Virtual Environment**
 
@@ -59,12 +60,19 @@ DATABASE_URL=postgres://your_db_user:your_db_password@localhost:5432/your_db_nam
 GROQ_API_KEY=your_groq_api_key
 GROQ_LLM_MODEL=llama-3.3-70b-versatile
 REDIS_URL=redis://localhost:6379/0
+LIVE_ENV=0
 ```
 
 ### **Apply Migrations**
 
 ```bash
 python manage.py migrate
+```
+
+### **Start Celery (for background tasks)**
+
+```bash
+celery -A config worker --loglevel=info
 ```
 
 ### **Run the Django Server**
