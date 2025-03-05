@@ -18,6 +18,9 @@ import environ
 env = environ.Env()
 environ.Env.read_env()
 
+# Get IS_LIVE_ENV info
+IS_LIVE_ENV = env.bool("LIVE_ENV")
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -158,7 +161,7 @@ CELERY_RESULT_BACKEND = env("REDIS_URL")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_BROKER_USE_SSL = {
-    "ssl_cert_reqs": "CERT_NONE" if env.bool("LIVE_ENV") else None,
+    "ssl_cert_reqs": "CERT_NONE" if IS_LIVE_ENV else None,
     "ssl_keyfile": None,
     "ssl_certfile": None,
     "ssl_ca_certs": None,
