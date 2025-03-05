@@ -15,7 +15,7 @@ class BookMetadataAdmin(admin.ModelAdmin):
 
 @admin.register(BookAnalysis)
 class BookAnalysisAdmin(admin.ModelAdmin):
-    list_display = ["id", "book"]
+    list_display = ["id", "book", "analyse_status"]
 
 
 @admin.register(BookSearchHistory)

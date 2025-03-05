@@ -45,14 +45,25 @@ def analyse_book(gutenberg_id):
     from groq import Groq
 
     from apps.books.models import Book, BookAnalysis
-    from apps.books.utils import (FINAL_ANALYSIS_PROMPT_TEMPLATE,
-                                  TEXT_ANALYSIS_PROMPT_TEMPLATE,
-                                  split_text_evenly)
+    from apps.books.utils import (
+        FINAL_ANALYSIS_PROMPT_TEMPLATE,
+        TEXT_ANALYSIS_PROMPT_TEMPLATE,
+        split_text_evenly,
+    )
+
+    # Get book analysis instance
+    book_analysis = BookAnalysis.objects.get(book__gutenberg_id=gutenberg_id)
 
     # Get book content
     book_content = fetch_book_content(gutenberg_id)
     if book_content is None:
+        book_analysis.analyse_status = BookAnalysis.AnalyseChoice.FAILED
+        book_analysis.save()
+
         return None
+
+    book_analysis.analyse_status = BookAnalysis.AnalyseChoice.IN_PROGRESS
+    book_analysis.save()
 
     # Split book content into chunks
     book_chunks = split_text_evenly(book_content)
@@ -98,18 +109,16 @@ def analyse_book(gutenberg_id):
     )
 
     analysis = json.loads(response.choices[0].message.content)
-    book = Book.objects.get(gutenberg_id=gutenberg_id)
+    book_analysis.analyse_status = BookAnalysis.AnalyseChoice.COMPLETED
+    book_analysis.summary = analysis["final_summary"]
+    book_analysis.key_characters = analysis["key_characters"]
+    book_analysis.themes = analysis["main_themes"]
+    book_analysis.topics = analysis["main_topics"]
+    book_analysis.sentiment_and_emotion = analysis["overall_sentiment_and_emotion"]
+    book_analysis.notable_quotes = analysis["notable_quotes"]
+    book_analysis.character_relationships = analysis["character_relationships"]
+    book_analysis.save()
 
-    book_analysis = BookAnalysis.objects.create(
-        book=book,
-        summary=analysis["final_summary"],
-        key_characters=analysis["key_characters"],
-        themes=analysis["main_themes"],
-        topics=analysis["main_topics"],
-        sentiment_and_emotion=analysis["overall_sentiment_and_emotion"],
-        notable_quotes=analysis["notable_quotes"],
-        character_relationships=analysis["character_relationships"],
-    )
     return book_analysis
 
 

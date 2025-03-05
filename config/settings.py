@@ -33,8 +33,8 @@ DEBUG = env.bool("DEBUG", default=False)
 
 ALLOWED_HOSTS = [
     "127.0.0.1",
-    "project-gutenberg-be-9cd0ffe65c53.herokuapp.com",
-    "project-gutenberg-fe-49404a1d4142.herokuapp.com",
+    "project-gutenberg-be-37fc41b3dd22.herokuapp.com",
+    "project-gutenberg-fe-c446f630a6ae.herokuapp.com",
 ]
 
 
@@ -65,8 +65,8 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:4200",
     "http://127.0.0.1:8000",
-    "https://project-gutenberg-be-9cd0ffe65c53.herokuapp.com",
-    "https://project-gutenberg-fe-49404a1d4142.herokuapp.com",
+    "https://project-gutenberg-be-37fc41b3dd22.herokuapp.com",
+    "https://project-gutenberg-fe-c446f630a6ae.herokuapp.com",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -151,3 +151,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Groq
 GROQ_API_KEY = env("GROQ_API_KEY")
 GROQ_LLM_MODEL = env("GROQ_LLM_MODEL")
+
+# Celery
+CELERY_BROKER_URL = env("REDIS_URL")
+CELERY_RESULT_BACKEND = env("REDIS_URL")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"

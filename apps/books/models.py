@@ -27,16 +27,25 @@ class BookMetadata(models.Model):
 
 
 class BookAnalysis(models.Model):
+    class AnalyseChoice(models.TextChoices):
+        PENDING = "pending"
+        IN_PROGRESS = "in_progress"
+        COMPLETED = "completed"
+        FAILED = "failed"
+
     book = models.OneToOneField(
         "books.Book", on_delete=models.PROTECT, related_name="analysis"
     )
-    summary = models.TextField()
-    key_characters = models.JSONField()
-    themes = ArrayField(models.CharField(max_length=255))
-    topics = ArrayField(models.CharField(max_length=255))
-    sentiment_and_emotion = models.TextField()
-    notable_quotes = ArrayField(models.CharField(max_length=255))
-    character_relationships = ArrayField(models.CharField(max_length=255))
+    summary = models.TextField(null=True, blank=True)
+    key_characters = models.JSONField(default=dict)
+    themes = ArrayField(models.CharField(max_length=255), default=[])
+    topics = ArrayField(models.CharField(max_length=255), default=[])
+    sentiment_and_emotion = models.TextField(null=True, blank=True)
+    notable_quotes = ArrayField(models.CharField(max_length=255), default=[])
+    character_relationships = ArrayField(models.CharField(max_length=255), default=[])
+    analyse_status = models.CharField(
+        max_length=20, choices=AnalyseChoice.choices, default=AnalyseChoice.PENDING
+    )
 
 
 class BookSearchHistory(models.Model):

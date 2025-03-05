@@ -1,11 +1,14 @@
 from django.utils import timezone
 from ninja import NinjaAPI
 
-from apps.books.models import (Book, BookAnalysis, BookMetadata,
-                               BookSearchHistory)
-from apps.books.schemas import (BookAnalysisOutSchema, BookContentOutSchema,
-                                BookMetadataOutSchema,
-                                BookSearchHistoryOutSchema)
+from apps.books.models import Book, BookAnalysis, BookMetadata, BookSearchHistory
+from apps.books.schemas import (
+    BookAnalysisOutSchema,
+    BookContentOutSchema,
+    BookMetadataOutSchema,
+    BookSearchHistoryOutSchema,
+    InProgressBookAnalysisOutSchema,
+)
 from config.ninja_utils.authentication import auth_bearer
 from config.ninja_utils.errors import NinjaError
 
@@ -45,11 +48,12 @@ def get_book_content(request, gutenberg_id: int):
 
 
 @books_api.get("{gutenberg_id}/metadata/", response=BookMetadataOutSchema)
-def get_book_content(request, gutenberg_id: int):
+def get_book_metadata(request, gutenberg_id: int):
     from django.db import transaction
 
     from apps.books.services import scrap_metadata
 
+    # Get metadata from db or scrapping
     book, created = Book.objects.get_or_create(gutenberg_id=gutenberg_id)
     metadata_qs = BookMetadata.objects.filter(book=book)
     if metadata_qs.count() == 0:
@@ -63,12 +67,23 @@ def get_book_content(request, gutenberg_id: int):
             status_code=404,
         )
 
+    # Save search history
     history, created = BookSearchHistory.objects.get_or_create(
         book=book, user=request.user
     )
     if not created:
         history.searched_at = timezone.now()
         history.save()
+
+    # Analyse book in background
+    book_analysis, created = BookAnalysis.objects.get_or_create(book=book)
+    if created or book_analysis.analyse_status == BookAnalysis.AnalyseChoice.FAILED:
+        from apps.books.tasks import analyse_book_task
+
+        book_analysis.analyse_status = BookAnalysis.AnalyseChoice.PENDING
+        book_analysis.save()
+
+        transaction.on_commit(lambda: analyse_book_task.delay(gutenberg_id))
 
     return {
         "title": metadata.title,
@@ -81,25 +96,29 @@ def get_book_content(request, gutenberg_id: int):
     }
 
 
-@books_api.get("{gutenberg_id}/analysis/", response=BookAnalysisOutSchema)
-def get_book_content(request, gutenberg_id: int):
-    pass
-
+@books_api.get(
+    "{gutenberg_id}/analysis/",
+    response=BookAnalysisOutSchema | InProgressBookAnalysisOutSchema,
+)
+def analyse_book(request, gutenberg_id: int):
     from apps.books.services import analyse_book
 
-    book_analysis_qs = BookAnalysis.objects.filter(book__gutenberg_id=gutenberg_id)
-    if book_analysis_qs.count() == 0:
-        analyse_book(gutenberg_id)
+    book_analysis = BookAnalysis.objects.get(book__gutenberg_id=gutenberg_id)
+    if book_analysis.analyse_status in (
+        BookAnalysis.AnalyseChoice.PENDING,
+        BookAnalysis.AnalyseChoice.IN_PROGRESS,
+    ):
+        return {"status": BookAnalysis.AnalyseChoice.IN_PROGRESS}
 
-    book_analysis = book_analysis_qs.first()
-    if book_analysis is None:
+    if book_analysis.analyse_status == BookAnalysis.AnalyseChoice.FAILED:
         raise NinjaError(
-            error_name="invalid_gutenberg_id",
-            message=f"Book with id {gutenberg_id} does not exist.",
-            status_code=404,
+            error_name="analyse_failed",
+            message=f"Book with id {gutenberg_id} analysis failed.",
+            status_code=500,
         )
 
     return {
+        "status": BookAnalysis.AnalyseChoice.COMPLETED,
         "summary": book_analysis.summary,
         "key_characters": book_analysis.key_characters,
         "sentiment_and_emotion": book_analysis.sentiment_and_emotion,
@@ -111,7 +130,7 @@ def get_book_content(request, gutenberg_id: int):
 
 
 @books_api.get("history/", response=list[BookSearchHistoryOutSchema])
-def get_book_content(request):
+def get_books_searching_history(request):
     history_qs = (
         BookSearchHistory.objects.filter(user=request.user)
         .select_related("book")

@@ -58,6 +58,7 @@ DEBUG=True
 DATABASE_URL=postgres://your_db_user:your_db_password@localhost:5432/your_db_name
 GROQ_API_KEY=your_groq_api_key
 GROQ_LLM_MODEL=llama-3.3-70b-versatile
+REDIS_URL=redis://localhost:6379/0
 ```
 
 ### **Apply Migrations**

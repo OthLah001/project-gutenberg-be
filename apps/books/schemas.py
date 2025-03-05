@@ -18,6 +18,7 @@ class BookMetadataOutSchema(Schema):
 
 
 class BookAnalysisOutSchema(Schema):
+    status: str
     summary: str
     key_characters: list[dict]
     sentiment_and_emotion: str
@@ -25,6 +26,10 @@ class BookAnalysisOutSchema(Schema):
     topics: list[str]
     character_relationships: list[str]
     notable_quotes: list[str]
+
+
+class InProgressBookAnalysisOutSchema(Schema):
+    status: str
 
 
 class BookSearchHistoryOutSchema(Schema):

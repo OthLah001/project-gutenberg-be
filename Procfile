@@ -1,2 +1,3 @@
 release: python manage.py migrate
-web: gunicorn config.wsgi --timeout 120 --log-file -
+web: gunicorn config.wsgi --log-file -
+celery: celery -A config worker --loglevel=info
