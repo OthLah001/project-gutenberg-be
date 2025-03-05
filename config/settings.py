@@ -31,7 +31,11 @@ SECRET_KEY = env("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=False)
 
-ALLOWED_HOSTS = ["127.0.0.1"]
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "project-gutenberg-be-9cd0ffe65c53.herokuapp.com",
+    "project-gutenberg-fe-49404a1d4142.herokuapp.com",
+]
 
 
 # Application definition
@@ -61,6 +65,8 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:4200",
     "http://127.0.0.1:8000",
+    "https://project-gutenberg-be-9cd0ffe65c53.herokuapp.com",
+    "https://project-gutenberg-fe-49404a1d4142.herokuapp.com/",
 ]
 
 ROOT_URLCONF = "config.urls"
