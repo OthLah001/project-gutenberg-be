@@ -18,7 +18,7 @@ def fetch_book_content(gutenberg_id):
             response = requests.get(url)
             response.raise_for_status()  # Raises an HTTPError for bad responses
             return response.text
-        except RequestException as e:
+        except Exception as e:
             pass
 
     return None
@@ -45,11 +45,9 @@ def analyse_book(gutenberg_id):
     from groq import Groq
 
     from apps.books.models import Book, BookAnalysis
-    from apps.books.utils import (
-        FINAL_ANALYSIS_PROMPT_TEMPLATE,
-        TEXT_ANALYSIS_PROMPT_TEMPLATE,
-        split_text_evenly,
-    )
+    from apps.books.utils import (FINAL_ANALYSIS_PROMPT_TEMPLATE,
+                                  TEXT_ANALYSIS_PROMPT_TEMPLATE,
+                                  split_text_evenly)
 
     # Get book content
     book_content = fetch_book_content(gutenberg_id)
