@@ -157,3 +157,11 @@ CELERY_BROKER_URL = env("REDIS_URL")
 CELERY_RESULT_BACKEND = env("REDIS_URL")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
+
+if env("REDIS_URL").startswith("rediss://"):
+    CELERY_BROKER_USE_SSL = {
+        "ssl_cert_reqs": "CERT_NONE",
+        "ssl_keyfile": None,
+        "ssl_certfile": None,
+        "ssl_ca_certs": None,
+    }
