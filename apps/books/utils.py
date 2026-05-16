@@ -138,7 +138,9 @@ Provide a single JSON object structured as follows:
    - Select the most powerful and meaningful quotes across all sections.
    - Ensure they represent the core ideas or style of the book.
 6. Character Relationships
-   - Merge character relationships from different sections into a cohesive relationship map.
+   - Merge character relationships from different sections into a cohesive relationship.
+   - Each relationship should be a string describing the relationship between the characters.
+   - The relationships should not be a list of strings of json objects.
    - Ensure relationships make sense within the full story context.
 7. Ensure the response is under 32000 characters.
 8. The response must be valid JSON, with no extra words, formatting, or text before or after the JSON.
@@ -149,6 +151,7 @@ Provide a single JSON object structured as follows:
 
 ### Response Requirements
 - Must return a single, valid JSON object.
+_ Array values must be separated by a comma.
 - No extra text, formatting, or explanations before/after the JSON.
 - All keys must be present (if data is missing, return an empty string `""` or an empty array `[]`).
 - Ensure the JSON is parseable and contains exactly 7 keys: "final_summary", "key_characters", "main_themes", "main_topics", "overall_sentiment_and_emotion", "notable_quotes", "character_relationships"

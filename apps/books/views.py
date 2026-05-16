@@ -141,6 +141,7 @@ def get_books_searching_history(request):
         {
             "title": h.book.metadata.title,
             "gutenberg_id": h.book.gutenberg_id,
+            "author": h.book.metadata.authors[0] if h.book.metadata.authors else "Unknown",
             "searched_at": h.searched_at,
         }
         for h in history_qs

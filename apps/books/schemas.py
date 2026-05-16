@@ -35,4 +35,5 @@ class InProgressBookAnalysisOutSchema(Schema):
 class BookSearchHistoryOutSchema(Schema):
     title: str
     gutenberg_id: int
+    author: str
     searched_at: AwareDatetime

@@ -62,8 +62,13 @@ def analyse_book(gutenberg_id):
 
         return None
 
+    # Update book analysis status
     book_analysis.analyse_status = BookAnalysis.AnalyseChoice.IN_PROGRESS
     book_analysis.save()
+
+    # Update book content
+    book_analysis.book.content = book_content
+    book_analysis.book.save()
 
     # Split book content into chunks
     book_chunks = split_text_evenly(book_content)
