@@ -151,9 +151,16 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Chunking
+CHUNKING_MODEL = env("CHUNKING_MODEL", default="gpt-4o-mini")
+
 # Groq
 GROQ_API_KEY = env("GROQ_API_KEY")
 GROQ_LLM_MODEL = env("GROQ_LLM_MODEL")
+
+# Gemini
+GEMINI_API_KEY = env("GEMINI_API_KEY")
+GEMINI_EMBEDDING_MODEL = env("GEMINI_EMBEDDING_MODEL", default="gemini-embedding-001")
 
 # Celery
 CELERY_BROKER_URL = env("REDIS_URL")

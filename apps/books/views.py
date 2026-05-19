@@ -40,11 +40,7 @@ def get_book_content(request, gutenberg_id: int):
                 status_code=404,
             )
 
-        books_qs.update(content=content)
-
-    book = books_qs.first()
-
-    return {"content": book.content}
+    return {"content": books_qs.first().content}
 
 
 @books_api.get("{gutenberg_id}/metadata/", response=BookMetadataOutSchema)

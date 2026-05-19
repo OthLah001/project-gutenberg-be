@@ -7,6 +7,7 @@ def create_book_instance(gutenberg_id):
 
 def fetch_book_content(gutenberg_id):
     import requests
+    from apps.books.models import Book
 
     url_variations = [
         f"https://www.gutenberg.org/files/{gutenberg_id}/{gutenberg_id}.txt",
@@ -17,6 +18,8 @@ def fetch_book_content(gutenberg_id):
         try:
             response = requests.get(url)
             response.raise_for_status()  # Raises an HTTPError for bad responses
+            Book.objects.filter(gutenberg_id=gutenberg_id).update(content=response.text)
+
             return response.text
         except Exception as e:
             pass
@@ -48,14 +51,15 @@ def analyse_book(gutenberg_id):
     from apps.books.utils import (
         FINAL_ANALYSIS_PROMPT_TEMPLATE,
         TEXT_ANALYSIS_PROMPT_TEMPLATE,
-        split_text_evenly,
+        chunk_book_content,
     )
 
-    # Get book analysis instance
-    book_analysis = BookAnalysis.objects.get(book__gutenberg_id=gutenberg_id)
+    # Get book and book analysis instance
+    book_analysis = BookAnalysis.objects.get(book__gutenberg_id=gutenberg_id).select_related("book")
+    book = book_analysis.book
 
     # Get book content
-    book_content = fetch_book_content(gutenberg_id)
+    book_content = book.content or fetch_book_content(gutenberg_id)
     if book_content is None:
         book_analysis.analyse_status = BookAnalysis.AnalyseChoice.FAILED
         book_analysis.save()
@@ -66,12 +70,8 @@ def analyse_book(gutenberg_id):
     book_analysis.analyse_status = BookAnalysis.AnalyseChoice.IN_PROGRESS
     book_analysis.save()
 
-    # Update book content
-    book_analysis.book.content = book_content
-    book_analysis.book.save()
-
     # Split book content into chunks
-    book_chunks = split_text_evenly(book_content)
+    book_chunks = chunk_book_content(book_content, book.id)
     groq = Groq(api_key=settings.GROQ_API_KEY)
     chunk_analyses_data = []
 

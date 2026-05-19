@@ -1,6 +1,11 @@
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.search import SearchVector, SearchVectorField
+from django.contrib.postgres.indexes import GinIndex
+from pgvector.django import HnswIndex
 from django.db import models
+from pgvector.django import VectorField
+
 
 User = get_user_model()
 
@@ -61,3 +66,38 @@ class BookSearchHistory(models.Model):
             models.Index(fields=["user", "searched_at"]),
         ]
         unique_together = [["book", "user"]]
+
+class BookChunk(models.Model):
+    book = models.ForeignKey(
+        "books.Book", on_delete=models.CASCADE, related_name="chunks"
+    )
+    content = models.TextField()
+    chunk_index = models.IntegerField()
+    search_vector = models.GeneratedField(
+        db_persist=True,
+        expression=SearchVector("content", config="english"),
+        output_field=SearchVectorField(),
+    )
+    embedding = VectorField(dimensions=1536)
+    token_count = models.IntegerField()
+    
+    added_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["book", "chunk_index"],
+                name="unique_book_chunk_index",
+            )
+        ]
+
+        indexes = [
+            GinIndex(fields=["search_vector"], name="search_vector_gin_index"),
+            HnswIndex(
+                fields=["embedding"],
+                opclasses=["vector_cosine_ops"],
+                name="embedding_hnsw_index",
+            ),
+            models.Index(fields=["book", "chunk_index"], name="book_chunk_index_index"),
+        ]

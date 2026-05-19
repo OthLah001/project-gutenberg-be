@@ -1,20 +1,18 @@
-def split_text_evenly(text: str, max_length: int = 126000):
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
+from django.conf import settings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-    if not text:
-        return []
+from apps.books.tasks import embed_book_chunks_task
 
-    if len(text) <= max_length:
-        return [text]
+text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+    model_name=settings.CHUNKING_MODEL,
+    chunk_size=600,
+    chunk_overlap=60
+)
 
-    # Calculate optimal chunk size
-    total_length = len(text)
-    nbre_chunks = (total_length + max_length - 1) // max_length
-    optimal_chunk_size = total_length // nbre_chunks
-
-    # Split the text
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=optimal_chunk_size)
-    return text_splitter.split_text(text)
+def chunk_book_content(content: str, book_id: int):
+    chunks = text_splitter.split_text(content)
+    embed_book_chunks_task.delay(chunks, 0, book_id, False)
+    return chunks
 
 
 METADATA_FIELD_PAGE_TITLES = {
