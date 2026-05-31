@@ -1,5 +1,6 @@
 from django.utils import timezone
 from ninja import NinjaAPI
+from ninja.pagination import paginate, PageNumberPagination
 
 from apps.books.models import Book, BookAnalysis, BookMetadata, BookSearchHistory
 from apps.books.schemas import (
@@ -8,6 +9,9 @@ from apps.books.schemas import (
     BookMetadataOutSchema,
     BookSearchHistoryOutSchema,
     InProgressBookAnalysisOutSchema,
+    BookSearchQueryOutSchema,
+    BookConversationOutSchema,
+    BookConversationInSchema,
 )
 from config.ninja_utils.authentication import auth_bearer
 from config.ninja_utils.errors import NinjaError
@@ -79,7 +83,7 @@ def get_book_metadata(request, gutenberg_id: int):
         book_analysis.analyse_status = BookAnalysis.AnalyseChoice.PENDING
         book_analysis.save()
 
-        transaction.on_commit(lambda: analyse_book_task.delay(gutenberg_id))
+        analyse_book_task.delay(gutenberg_id)
 
     return {
         "title": metadata.title,
@@ -97,8 +101,6 @@ def get_book_metadata(request, gutenberg_id: int):
     response=BookAnalysisOutSchema | InProgressBookAnalysisOutSchema,
 )
 def analyse_book(request, gutenberg_id: int):
-    from apps.books.services import analyse_book
-
     book_analysis = BookAnalysis.objects.get(book__gutenberg_id=gutenberg_id)
     if book_analysis.analyse_status in (
         BookAnalysis.AnalyseChoice.PENDING,
@@ -142,3 +144,45 @@ def get_books_searching_history(request):
         }
         for h in history_qs
     ]
+
+@books_api.get("search/", response=list[BookSearchQueryOutSchema])
+@paginate(PageNumberPagination, page_size=5)
+def search_books(request, query: str):
+    from apps.books.models import BookChunk
+    
+    return BookChunk.search(query)
+
+@books_api.post("ask/", response=BookConversationOutSchema)
+def ask_book(request, data: BookConversationInSchema):
+    from apps.books.models import BookConversation, BookConversationMessage, BookChunk
+    from apps.books.services import ask_llm, classify_user_query
+
+    # Check if book has been chunked or not yet
+    book = Book.objects.get(gutenberg_id=data.gutenberg_id)
+    if book.chunks.count() == 0:
+        raise NinjaError(
+            error_name="book_not_chunked",
+            message=f"Book with id {data.book_id} has not been chunked yet. Try later.",
+            status_code=400,
+        )
+
+    # Create conversation & message
+    conversation_id = data.conversation_id
+    if not conversation_id:
+        conversation = BookConversation.objects.create(user=request.user, book=book)
+        conversation_id = conversation.id
+
+    user_message = BookConversationMessage.objects.create(conversation_id=conversation_id, role=BookConversationMessage.Role.USER, content=data.query)
+
+    # Check if query is broad or narrow & get the right content for each one
+    is_query_broad = classify_user_query(data.query) == "broad"
+    relevant_chunks =  BookChunk.objects.filter(book_id=book.id) if is_query_broad else BookChunk.search(data.query)
+    user_message.chunks.set(relevant_chunks)
+
+    # Ask the LLM to answer the question
+    answer = ask_llm(data.query, [(chunk.summary if is_query_broad else chunk.content) for chunk in relevant_chunks], is_query_broad)
+    assistant_message = BookConversationMessage.objects.create(conversation_id=conversation_id, role=BookConversationMessage.Role.ASSISTANT, content=answer)
+
+    # Return conversation
+    return assistant_message
+

@@ -1,4 +1,5 @@
 def create_book_instance(gutenberg_id):
+    # Create a book instance in the database
     from apps.books.models import Book
 
     book = Book.objects.create(gutenberg_id=gutenberg_id)
@@ -6,6 +7,11 @@ def create_book_instance(gutenberg_id):
 
 
 def fetch_book_content(gutenberg_id):
+    '''
+    Fetch the book content from the Gutenberg project.
+    If the book content is not found, return None
+    If the book content is found, update the book instance in the database and return the content.
+    '''
     import requests
     from apps.books.models import Book
 
@@ -28,6 +34,11 @@ def fetch_book_content(gutenberg_id):
 
 
 def fetch_book_metadata(gutenberg_id):
+    '''
+    Fetch the book metadata from the Gutenberg project.
+    If the book metadata is not found, return None
+    If the book metadata is found, return the metadata
+    '''
     import requests
 
     url = f"https://www.gutenberg.org/ebooks/{gutenberg_id}"
@@ -41,13 +52,20 @@ def fetch_book_metadata(gutenberg_id):
 
 
 def analyse_book(gutenberg_id):
+    '''
+    Analyze the book content using Groq API.
+    If the book content couldn't be fetched or an error occurred, return None.
+    If not, we split the content of the book into chunks, then we analyze each chunk, so at the end
+    we get the final analyze.
+    '''
     import json
 
     from django.conf import settings
     from django.template import Context, Template
     from groq import Groq
+    import redis
 
-    from apps.books.models import Book, BookAnalysis
+    from apps.books.models import BookAnalysis
     from apps.books.utils import (
         FINAL_ANALYSIS_PROMPT_TEMPLATE,
         TEXT_ANALYSIS_PROMPT_TEMPLATE,
@@ -55,7 +73,7 @@ def analyse_book(gutenberg_id):
     )
 
     # Get book and book analysis instance
-    book_analysis = BookAnalysis.objects.get(book__gutenberg_id=gutenberg_id).select_related("book")
+    book_analysis = BookAnalysis.objects.get(book__gutenberg_id=gutenberg_id)
     book = book_analysis.book
 
     # Get book content
@@ -70,50 +88,72 @@ def analyse_book(gutenberg_id):
     book_analysis.analyse_status = BookAnalysis.AnalyseChoice.IN_PROGRESS
     book_analysis.save()
 
-    # Split book content into chunks
+    # Split book content into chunks & analyze each chunk
     book_chunks = chunk_book_content(book_content, book.id)
     groq = Groq(api_key=settings.GROQ_API_KEY)
+    r = redis.Redis()
     chunk_analyses_data = []
 
-    for chunk in book_chunks:
+    for index, chunk in enumerate(book_chunks):
         # Render the user prompt and get data for each chunk
         user_prompt = Template(TEXT_ANALYSIS_PROMPT_TEMPLATE).render(
             Context({"content": chunk})
         )
 
-        response = groq.chat.completions.create(
-            messages=[
-                {"role": "system", "content": "You are an expert text analyst"},
-                {
-                    "role": "user",
-                    "content": user_prompt,
-                },
-            ],
-            model=settings.GROQ_LLM_MODEL,
-            stop=None,
-            stream=False,
-        )
-        chunk_analyses_data.append(response.choices[0].message.content)
+        # The LLM returns invalid json even the instructions are correct
+        # For that reason, I repeat the LLM call until I get a valid json
+        # IMPROVEMENT: set a max_retry = 5 to not overwhelm the LLM
+        while True:
+            try:
+                response = groq.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": "You are an expert text analyst"},
+                        {
+                            "role": "user",
+                            "content": user_prompt,
+                        },
+                    ],
+                    model=settings.GROQ_LLM_MODEL,
+                    stop=None,
+                    stream=False,
+                )
+                chunk_analyses_data.append(response.choices[0].message.content)
+
+                # Push the summary to redis queue
+                summary = json.loads(response.choices[0].message.content)["summary"]
+                r.rpush(f"book_{book.id}_chunk_{index}", summary)
+                break
+            except json.decoder.JSONDecodeError:
+                continue
 
     # Merge the chunks into one result
     final_user_prompt = Template(FINAL_ANALYSIS_PROMPT_TEMPLATE).render(
         Context({"chunk_analyses_data": chunk_analyses_data})
     )
 
-    response = groq.chat.completions.create(
-        messages=[
-            {"role": "system", "content": "You are an expert text analyst"},
-            {
-                "role": "user",
-                "content": final_user_prompt,
-            },
-        ],
-        model=settings.GROQ_LLM_MODEL,
-        stop=None,
-        stream=False,
-    )
+    # The LLM returns invalid json even the instructions are correct
+    # For that reason, I repeat the LLM call until I get a valid json
+    # IMPROVEMENT: set a max_retry = 5 to not overwhelm the LLM
+    analysis = None
+    while True:
+        try:
+            response = groq.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "You are an expert text analyst"},
+                    {
+                        "role": "user",
+                        "content": final_user_prompt,
+                    },
+                ],
+                model=settings.GROQ_LLM_MODEL,
+                stop=None,
+                stream=False,
+            )
+            analysis = json.loads(response.choices[0].message.content)
+            break
+        except json.decoder.JSONDecodeError:
+            continue
 
-    analysis = json.loads(response.choices[0].message.content)
     book_analysis.analyse_status = BookAnalysis.AnalyseChoice.COMPLETED
     book_analysis.summary = analysis["final_summary"]
     book_analysis.key_characters = analysis["key_characters"]
@@ -128,8 +168,10 @@ def analyse_book(gutenberg_id):
 
 
 def scrap_metadata(gutenberg_id):
+    '''
+    Scrap the book metadata.
+    '''
     from datetime import datetime
-
     from lxml import html
 
     from apps.books.models import Book, BookMetadata
@@ -171,3 +213,57 @@ def scrap_metadata(gutenberg_id):
 
     book_metadata.save()
     return book_metadata
+
+
+def classify_user_query(query: str):
+    from django.conf import settings
+    from groq import Groq
+    from django.template import Template, Context
+
+    from apps.books.utils import CLASSIFICATION_LLM_PROMPT
+
+    groq = Groq(api_key=settings.GROQ_API_KEY)
+    classification_prompt = Template(CLASSIFICATION_LLM_PROMPT).render(
+        Context({"input_data": {
+            "user_query": query,
+        }})
+    )
+    response = groq.chat.completions.create(
+        messages=[
+            {"role": "system", "content": "You are a query classifier for a RAG system."},
+            {"role": "user", "content": classification_prompt},
+        ],
+        model=settings.GROQ_LLM_MODEL,
+        stop=None,
+        stream=False,
+    )
+    print("=> broad/narrow? ", response.choices[0].message.content)
+    return response.choices[0].message.content
+
+
+def ask_llm(query, content: list[str], is_query_broad: bool):
+    from django.conf import settings
+    from groq import Groq
+    import json
+    from django.template import Template, Context
+
+    from apps.books.utils import ASK_LLM_PROMPT_TEMPLATE
+
+    groq = Groq(api_key=settings.GROQ_API_KEY)
+    user_prompt = Template(ASK_LLM_PROMPT_TEMPLATE).render(
+        Context({"input_data": {
+            "question": query,
+            "content": content,
+            "chunks_or_summaries": "summaries" if is_query_broad else "chunks"
+        }})
+    )
+    response = groq.chat.completions.create(
+        messages=[
+            {"role": "system", "content": "You are a high-precision RAG answer generator."},
+            {"role": "user", "content": user_prompt},
+        ],
+        model=settings.GROQ_LLM_MODEL,
+        stop=None,
+        stream=False,
+    )
+    return json.loads(response.choices[0].message.content)["answer"]
