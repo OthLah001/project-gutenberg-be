@@ -224,9 +224,7 @@ def classify_user_query(query: str):
 
     groq = Groq(api_key=settings.GROQ_API_KEY)
     classification_prompt = Template(CLASSIFICATION_LLM_PROMPT).render(
-        Context({"input_data": {
-            "user_query": query,
-        }})
+        Context({"user_query": query})
     )
     response = groq.chat.completions.create(
         messages=[
@@ -241,7 +239,40 @@ def classify_user_query(query: str):
     return response.choices[0].message.content
 
 
-def ask_llm(query, content: list[str], is_query_broad: bool):
+def rewrite_followup_query(query: str, conversation_history: list[dict[str, str]]):
+    import json
+    from django.conf import settings
+    from groq import Groq
+    from django.template import Template, Context
+    from apps.books.utils import REWRITE_FOLLOWUP_QUERY_PROMPT
+
+    input_data = {
+        "query": query,
+        "conversation_history": conversation_history,
+    }
+    prompt = Template(REWRITE_FOLLOWUP_QUERY_PROMPT).render(Context({"input_data": input_data}))
+
+    groq = Groq(api_key=settings.GROQ_API_KEY)
+    response = groq.chat.completions.create(
+        messages=[
+            {"role": "system", "content": "You rewrite conversational questions for retrieval systems."},
+            {"role": "user", "content": prompt},
+        ],
+        model=settings.GROQ_LLM_MODEL,
+        stop=None,
+        stream=False,
+    )
+
+    response_content = response.choices[0].message.content or ""
+    try:
+        rewritten_query = json.loads(response_content).get("standalone_query", "")
+    except json.decoder.JSONDecodeError:
+        rewritten_query = response_content
+
+    return (rewritten_query or query).strip()
+
+
+def ask_llm(query, content: list[str], is_query_broad: bool, conversation_history: list[dict[str, str]] | None = None):
     from django.conf import settings
     from groq import Groq
     import json
@@ -254,7 +285,8 @@ def ask_llm(query, content: list[str], is_query_broad: bool):
         Context({"input_data": {
             "question": query,
             "content": content,
-            "chunks_or_summaries": "summaries" if is_query_broad else "chunks"
+            "chunks_or_summaries": "summaries" if is_query_broad else "chunks",
+            "conversation_history": conversation_history or [],
         }})
     )
     response = groq.chat.completions.create(
@@ -266,4 +298,10 @@ def ask_llm(query, content: list[str], is_query_broad: bool):
         stop=None,
         stream=False,
     )
-    return json.loads(response.choices[0].message.content)["answer"] or "I couldn't generate an answer right now. Please try again."
+    response_content = response.choices[0].message.content or ""
+    try:
+        answer = json.loads(response_content).get("answer", "")
+    except json.decoder.JSONDecodeError:
+        answer = response_content
+
+    return answer or "I couldn't generate an answer right now. Please try again."

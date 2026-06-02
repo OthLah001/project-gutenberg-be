@@ -185,6 +185,27 @@ _ Array values must be separated by a comma.
 9. Do NOT add "json" or any text before the JSON output. The response must start and end with {} directly.
 """
 
+REWRITE_FOLLOWUP_QUERY_PROMPT = """
+### Task
+Rewrite the user query into a standalone question using the conversation history.
+
+### Rules
+1. Preserve the user's exact intent.
+2. Resolve references such as "it", "that", "this", "he", "she", "they", "the previous answer", and implicit follow-ups.
+3. Keep names, entities, chapter references, and timeline details accurate to the provided history.
+4. If the query is already standalone, return it unchanged.
+5. Keep the rewritten query concise.
+
+### Output Requirements
+Return ONLY valid JSON in this exact shape:
+{
+  "standalone_query": "..."
+}
+
+### Input
+{{ input_data }}
+"""
+
 CLASSIFICATION_LLM_PROMPT = """
 ### Task
 Classify the user query into one of two categories:
@@ -236,6 +257,10 @@ If the answer cannot be determined from the provided content, return:
 
 {
   "question": "...",
+  "conversation_history": [
+    {"role": "user | assistant", "content": "..."},
+    ...
+  ],
   "content": [
     "...",
     "...",
@@ -248,28 +273,32 @@ If the answer cannot be determined from the provided content, return:
   Raw retrieved text chunks from the book.
 - "summaries":
   Higher-level summaries of sections/chapters/books.
+- "conversation_history":
+  Recent turns from the conversation. Use it only to resolve references and maintain continuity.
 
 ### INSTRUCTIONS
 1. Use ONLY the provided content.
-2. Do NOT hallucinate or infer unsupported facts.
-3. If multiple content items are relevant, synthesize them into a coherent answer.
-4. If the content contains conflicting information, prioritize:
+2. Use conversation history only to understand what the user means.
+3. Do NOT hallucinate or infer unsupported facts.
+4. If multiple content items are relevant, synthesize them into a coherent answer.
+5. If the content contains conflicting information, prioritize:
    - the most repeated information
    - the most explicit statement
-5. Keep the answer concise and directly relevant to the question.
-6. The answer MUST be written in the same language as the question.
-7. Maximum response length: 32000 characters.
-8. Never mention:
+6. Keep the answer concise and directly relevant to the question.
+7. The answer MUST be written in the same language as the question.
+8. Maximum response length: 32000 characters.
+9. Never mention:
    - "based on the provided content"
    - "the chunks say"
    - "the summaries mention"
-9. Do not quote excessively unless necessary.
-10. If "chunks_or_summaries" == "summaries":
+10. Do not quote excessively unless necessary.
+11. If "chunks_or_summaries" == "summaries":
     - produce a higher-level synthesized answer
     - avoid low-level details unless clearly important
-11. If "chunks_or_summaries" == "chunks":
+12. If "chunks_or_summaries" == "chunks":
     - prefer precise factual answers
     - preserve important details
+13. If content is insufficient, return an empty answer even if history suggests a likely answer.
 
 ### OUTPUT REQUIREMENTS
 You MUST return EXACTLY one valid JSON object.

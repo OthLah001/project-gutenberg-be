@@ -159,32 +159,49 @@ def search_books(request, query: str):
 @books_api.post("ask/", response=BookConversationOutSchema)
 def ask_book(request, data: BookConversationInSchema):
     from apps.books.models import BookConversation, BookConversationMessage, BookChunk
-    from apps.books.services import ask_llm, classify_user_query
+    from apps.books.services import ask_llm, classify_user_query, rewrite_followup_query
 
     # Check if book has been chunked or not yet
     book = Book.objects.get(gutenberg_id=data.gutenberg_id)
     if book.chunks.count() == 0:
         raise NinjaError(
             error_name="book_not_chunked",
-            message=f"Book with id {data.book_id} has not been chunked yet. Try later.",
+            message=f"Book with id {data.gutenberg_id} has not been chunked yet. Try later.",
             status_code=400,
         )
 
-    # Create conversation & message
+    # Create or reuse conversation
     conversation_id = data.conversation_id
     if not conversation_id:
         conversation = BookConversation.objects.create(user=request.user, book=book)
         conversation_id = conversation.id
 
+    # Fetch recent history before storing the new user message.
+    # This is used to rewrite follow-up questions into standalone queries.
+    recent_messages_qs = BookConversationMessage.objects.filter(
+        conversation_id=conversation_id
+    ).order_by("-created_at")[:8]
+    recent_messages = [
+        {"role": message.role, "content": message.content}
+        for message in reversed(list(recent_messages_qs))
+    ]
+    rewritten_query = rewrite_followup_query(data.query, recent_messages)
+
+    # Create user message
     user_message = BookConversationMessage.objects.create(conversation_id=conversation_id, role=BookConversationMessage.Role.USER, content=data.query)
 
-    # Check if query is broad or narrow & get the right content for each one
-    is_query_broad = classify_user_query(data.query) == "broad"
-    relevant_chunks =  BookChunk.objects.filter(book_id=book.id) if is_query_broad else BookChunk.search(data.query)
+    # Classify and retrieve using the standalone query
+    is_query_broad = classify_user_query(rewritten_query) == "broad"
+    relevant_chunks =  BookChunk.objects.filter(book_id=book.id) if is_query_broad else BookChunk.search(rewritten_query)
     user_message.chunks.set(relevant_chunks)
 
-    # Ask the LLM to answer the question
-    answer = ask_llm(data.query, [(chunk.summary if is_query_broad else chunk.content) for chunk in relevant_chunks], is_query_broad)
+    # Ask the LLM to answer with retrieved context + recent history
+    answer = ask_llm(
+        rewritten_query,
+        [(chunk.summary if is_query_broad else chunk.content) for chunk in relevant_chunks],
+        is_query_broad,
+        conversation_history=recent_messages,
+    )
     assistant_message = BookConversationMessage.objects.create(conversation_id=conversation_id, role=BookConversationMessage.Role.ASSISTANT, content=answer)
 
     # Return conversation
