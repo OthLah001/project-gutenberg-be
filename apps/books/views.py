@@ -43,8 +43,12 @@ def get_book_content(request, gutenberg_id: int):
                 message=f"Book with id {gutenberg_id} does not exist.",
                 status_code=404,
             )
+    book = books_qs.first()
 
-    return {"content": books_qs.first().content}
+    return {
+        "content": book.content,
+        "embedding_status": book.embedding_status
+    }
 
 
 @books_api.get("{gutenberg_id}/metadata/", response=BookMetadataOutSchema)

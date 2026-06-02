@@ -1,11 +1,12 @@
 from datetime import date
-from apps.books.models import BookConversationMessage
+from apps.books.models import Book, BookConversationMessage
 from pydantic import AwareDatetime
 from ninja import Schema
 
 
 class BookContentOutSchema(Schema):
     content: str
+    embedding_status: Book.EmbeddingChunksChoice
 
 
 class BookMetadataOutSchema(Schema):

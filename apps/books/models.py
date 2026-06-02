@@ -11,10 +11,19 @@ User = get_user_model()
 
 
 class Book(models.Model):
+
+    class EmbeddingChunksChoice(models.TextChoices):
+        IN_PROGRESS = "in_progress"
+        COMPLETED = "completed"
+        FAILED = "failed"
+
     gutenberg_id = models.IntegerField(db_index=True, unique=True)
     content = models.TextField(null=True, blank=True)
     added_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    embedding_status = models.CharField(
+        max_length=20, choices=EmbeddingChunksChoice.choices, default=EmbeddingChunksChoice.IN_PROGRESS
+    )
 
 
 class BookMetadata(models.Model):

@@ -266,4 +266,4 @@ def ask_llm(query, content: list[str], is_query_broad: bool):
         stop=None,
         stream=False,
     )
-    return json.loads(response.choices[0].message.content)["answer"]
+    return json.loads(response.choices[0].message.content)["answer"] or "I couldn't generate an answer right now. Please try again."

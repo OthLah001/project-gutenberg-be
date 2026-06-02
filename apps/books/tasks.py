@@ -13,7 +13,6 @@ genai_client = genai.Client(api_key=settings.GEMINI_API_KEY)
 @shared_task
 def analyse_book_task(gutenberg_id):
     # Import models or other dependencies inside the function to avoid circular imports
-    import asyncio
     from apps.books.services import analyse_book
 
     analyse_book(gutenberg_id)
@@ -24,7 +23,7 @@ def embed_book_chunks_task(chunks: list[str], chunk_index: int, book_id: int, is
     import tiktoken
     import redis
 
-    from apps.books.models import BookChunk
+    from apps.books.models import BookChunk, Book
 
     instances = []
     encoder = tiktoken.encoding_for_model(settings.CHUNKING_MODEL)
@@ -52,6 +51,8 @@ def embed_book_chunks_task(chunks: list[str], chunk_index: int, book_id: int, is
                 )
             )
             chunk_index += 1
+        
+        Book.objects.filter(id=book_id).update(embedding_status=Book.EmbeddingChunksChoice.COMPLETED)
 
     except ClientError as e:
         if e.code == 409:
