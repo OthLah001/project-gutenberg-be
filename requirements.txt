@@ -117,3 +117,10 @@ websockets==16.0
 wheel==0.46.3
 yarl==1.18.3
 zstandard==0.23.0
+opentelemetry-api==1.42.1
+opentelemetry-sdk==1.42.1
+opentelemetry-exporter-otlp==1.42.1
+opentelemetry-instrumentation-django==0.63b1
+opentelemetry-instrumentation-requests==0.63b1
+opentelemetry-instrumentation-psycopg2==0.63b1
+opentelemetry-instrumentation-celery==0.63b1
