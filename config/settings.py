@@ -58,6 +58,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "middlewares.otel-exception.OTelExceptionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -169,5 +170,38 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 
 # OpenTelemetry
+OTEL_SERVICE_NAME = env("OTEL_SERVICE_NAME", default="project-gutenberg-be-DEV")
 OTEL_EXPORTER_OTLP_ENDPOINT = env("OTEL_EXPORTER_OTLP_ENDPOINT")
 OTEL_EXPORTER_OTLP_TOKEN = env("OTEL_EXPORTER_OTLP_TOKEN")
+OTEL_ENABLE_TRACING = env("OTEL_ENABLE_TRACING", default=False)
+
+if OTEL_ENABLE_TRACING:
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "filters": {
+            "otel": {
+                "()": "observability.logging.OpenTelemetryContextFilter",
+            },
+        },
+        "formatters": {
+            "default": {
+                "format": "[trace_id=%(trace_id)s span_id=%(span_id)s] %(levelname)s %(message)s",
+            },
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "filters": ["otel"],
+                "formatter": "default",
+            },
+            "otlp": {
+                "class": "opentelemetry.sdk._logs.LoggingHandler",
+                "level": "INFO",
+            },
+        },
+        "root": {
+            "handlers": ["console", "otlp"],
+            "level": "INFO",
+        },
+    }

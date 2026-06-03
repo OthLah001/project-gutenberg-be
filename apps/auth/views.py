@@ -1,4 +1,4 @@
-from ninja import NinjaAPI
+from config.ninja_utils.api import AppNinjaAPI
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import authenticate
@@ -14,17 +14,7 @@ from apps.auth.schemas import (
 from apps.auth.utils import create_jwt_token
 
 
-auth_api = NinjaAPI(urls_namespace="auth")
-
-
-# Set custom exception handler
-@auth_api.exception_handler(NinjaError)
-def handle_elham_error(request, exc: NinjaError):
-    return auth_api.create_response(
-        request,
-        {"error_name": exc.error_name, "message": exc.message},
-        status=exc.status_code,
-    )
+auth_api = AppNinjaAPI(urls_namespace="auth")
 
 
 @auth_api.post("login/", response=LoginOutSchema)

@@ -1,8 +1,12 @@
 import os
+
 from celery import Celery
-import ssl
+
+from observability.setup import bootstrap_observability
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+bootstrap_observability()
 
 app = Celery(
     "config",

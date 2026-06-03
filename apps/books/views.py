@@ -1,5 +1,5 @@
 from django.utils import timezone
-from ninja import NinjaAPI
+from config.ninja_utils.api import AppNinjaAPI
 from ninja.pagination import paginate, PageNumberPagination
 
 from apps.books.models import Book, BookAnalysis, BookMetadata, BookSearchHistory
@@ -16,17 +16,7 @@ from apps.books.schemas import (
 from config.ninja_utils.authentication import auth_bearer
 from config.ninja_utils.errors import NinjaError
 
-books_api = NinjaAPI(auth=auth_bearer, urls_namespace="books")
-
-
-# Set custom exception handler
-@books_api.exception_handler(NinjaError)
-def handle_elham_error(request, exc: NinjaError):
-    return books_api.create_response(
-        request,
-        {"error_name": exc.error_name, "message": exc.message},
-        status=exc.status_code,
-    )
+books_api = AppNinjaAPI(auth=auth_bearer, urls_namespace="books")
 
 
 @books_api.get("{gutenberg_id}/content/", response=BookContentOutSchema)
@@ -133,6 +123,11 @@ def analyse_book(request, gutenberg_id: int):
 
 @books_api.get("history/", response=list[BookSearchHistoryOutSchema])
 def get_books_searching_history(request):
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("Getting books searching history")
+    a = 15 / 0
+    logger.info("Books searching history got")
     history_qs = (
         BookSearchHistory.objects.filter(user=request.user)
         .select_related("book")

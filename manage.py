@@ -5,11 +5,9 @@ import sys
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
-from config.otel import setup_otel
-from config.observability import setup_observability
+from observability.setup import bootstrap_observability
 
-setup_otel()
-setup_observability()
+bootstrap_observability()
 
 
 def main():
