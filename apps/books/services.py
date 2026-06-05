@@ -91,7 +91,7 @@ def analyse_book(gutenberg_id):
     # Split book content into chunks & analyze each chunk
     book_chunks = chunk_book_content(book_content, book.id)
     groq = Groq(api_key=settings.GROQ_API_KEY)
-    r = redis.Redis()
+    r = redis.from_url(settings.REDIS_URL)
     chunk_analyses_data = []
 
     for index, chunk in enumerate(book_chunks):

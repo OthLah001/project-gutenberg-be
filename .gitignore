@@ -1,5 +1,6 @@
 venv
 config/.env
+config/.env.docker
 
 __pycache__
 

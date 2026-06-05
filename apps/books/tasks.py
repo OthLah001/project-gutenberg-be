@@ -27,7 +27,7 @@ def embed_book_chunks_task(chunks: list[str], chunk_index: int, book_id: int, is
 
     instances = []
     encoder = tiktoken.encoding_for_model(settings.CHUNKING_MODEL)
-    r = redis.Redis()
+    r = redis.from_url(settings.REDIS_URL)
 
     try:
         for chunk in chunks:

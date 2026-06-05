@@ -38,6 +38,8 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
     "project-gutenberg-be-37fc41b3dd22.herokuapp.com",
     "project-gutenberg-fe-c446f630a6ae.herokuapp.com",
+    "localhost",
+    "0.0.0.0"
 ]
 
 
@@ -163,9 +165,12 @@ GROQ_LLM_MODEL = env("GROQ_LLM_MODEL")
 GEMINI_API_KEY = env("GEMINI_API_KEY")
 GEMINI_EMBEDDING_MODEL = env("GEMINI_EMBEDDING_MODEL", default="gemini-embedding-001")
 
+# Redis
+REDIS_URL = env("REDIS_URL")
+
 # Celery
-CELERY_BROKER_URL = env("REDIS_URL")
-CELERY_RESULT_BACKEND = env("REDIS_URL")
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 

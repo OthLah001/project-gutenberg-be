@@ -123,11 +123,6 @@ def analyse_book(request, gutenberg_id: int):
 
 @books_api.get("history/", response=list[BookSearchHistoryOutSchema])
 def get_books_searching_history(request):
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info("Getting books searching history")
-    a = 15 / 0
-    logger.info("Books searching history got")
     history_qs = (
         BookSearchHistory.objects.filter(user=request.user)
         .select_related("book")
