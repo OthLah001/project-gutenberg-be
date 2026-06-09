@@ -33,8 +33,10 @@ else
     echo -e "\n\nLoading Docker Image..."
     docker build -t localhost:5000/gutenberg-backend:local .
     kind load docker-image localhost:5000/gutenberg-backend:local --name gutenberg-kind-cluster
-    kubectl rollout restart deployment/gutenberg-backend
+    kubectl apply -f deployment/backend-config/celery.yaml
+    kubectl rollout restart deployment/gutenberg-backend deployment/gutenberg-celery
     kubectl rollout status deployment/gutenberg-backend --timeout=120s
+    kubectl rollout status deployment/gutenberg-celery --timeout=120s
     echo "Done"
 fi
 
@@ -67,6 +69,12 @@ echo -e "\n\nCreating Backend Deployment..."
 kubectl apply -f deployment/backend-config/backend.yaml
 echo -e "\n\nWaiting for Backend to be ready..."
 kubectl wait --for=condition=available --timeout=120s deployment/gutenberg-backend
+echo "Done"
+
+echo -e "\n\nCreating Celery Worker Deployment..."
+kubectl apply -f deployment/backend-config/celery.yaml
+echo -e "\n\nWaiting for Celery Worker to be ready..."
+kubectl wait --for=condition=available --timeout=120s deployment/gutenberg-celery
 echo "Done"
 
 echo -e "\n\n================================================"

@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gutenberg-celery
+  labels:
+    app: celery-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+    spec:
+      containers:
+      - name: celery
+        image: localhost:5000/gutenberg-backend:local
+        imagePullPolicy: Never
+        command: ["celery", "-A", "config", "worker", "--loglevel=info"]
+        livenessProbe:
+          exec:
+            command:
+              - sh
+              - -c
+              - celery -A config inspect ping -d celery@$(hostname)
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 10
+        readinessProbe:
+          exec:
+            command: ["python", "manage.py", "check"]
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        envFrom:
+        - configMapRef:
+            name: gutenberg-configmap
+        - secretRef:
+            name: gutenberg-secrets
