@@ -23,7 +23,6 @@ def setup_observability() -> None:
 def bootstrap_observability() -> None:
     from config import settings
 
-    print("=> ", settings.OTEL_ENABLE_TRACING)
     if settings.OTEL_ENABLE_TRACING:
         setup_otel()
         setup_otel_logs()

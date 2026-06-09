@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gutenberg-backend
+  labels:
+    app: backend-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend-app
+  template:
+    metadata:
+      labels:
+        app: backend-app
+    spec:
+      containers:
+      - name: backend
+        image: localhost:5000/gutenberg-backend:local
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8000
+        livenessProbe:
+          exec:
+            command: ["python", "manage.py", "check"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        readinessProbe:
+          exec:
+            command: ["python", "manage.py", "check"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        envFrom:
+        - configMapRef:
+            name: gutenberg-configmap
+        - secretRef:
+            name: gutenberg-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gutenberg-backend-service
+  labels:
+    app: backend-app
+spec:
+  type: NodePort
+  ports:
+  - protocol: TCP
+    port: 8000
+    targetPort: 8000
+    nodePort: 30800
+  selector:
+    app: backend-app

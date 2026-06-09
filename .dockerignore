@@ -1,5 +1,9 @@
 venv
 
+deployment/env-config/secrets.yml
+deployment/env-config/public-cert.pem
+deployment/env-config/sealedsecret.yaml
+
 __pycache__
 
 .vscode

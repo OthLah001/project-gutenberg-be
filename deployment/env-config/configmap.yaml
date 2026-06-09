@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gutenberg-configmap
+data:
+  DEBUG: "True"
+  LIVE_ENV: "False"
+  GROQ_LLM_MODEL: "llama-3.1-8b-instant"
+  GEMINI_EMBEDDING_MODEL: "gemini-embedding-001"
+  CHUNKING_MODEL: "gpt-4o-mini"
+  OTEL_ENABLE_TRACING: "False"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "https://otlp-gateway-prod-eu-west-2.grafana.net/otlp"
+  REDIS_URL: "redis://gutenberg-redis-service:6379"

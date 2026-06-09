@@ -43,7 +43,6 @@ class Command(BaseCommand):
                     continue
 
                 try:
-                    print(f"\t=> ID #{gutenberg_id} ... ", end="")
                     with transaction.atomic(durable=False, savepoint=True):
                         # Create or get the Book and BookMetadata instances
                         book, created = Book.objects.get_or_create(

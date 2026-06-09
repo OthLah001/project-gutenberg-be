@@ -235,7 +235,6 @@ def classify_user_query(query: str):
         stop=None,
         stream=False,
     )
-    print("=> broad/narrow? ", response.choices[0].message.content)
     return response.choices[0].message.content
 
 

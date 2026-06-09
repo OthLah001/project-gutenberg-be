@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gutenberg-redis
+  labels:
+    app: redis-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-app
+  template:
+    metadata:
+      labels:
+        app: redis-app
+    spec:
+      containers:
+      - name: redis
+        image: redis:8.2-alpine
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        livenessProbe:
+          exec:
+            command: ["redis-cli", "ping"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        readinessProbe:
+          exec:
+            command: ["redis-cli", "ping"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: gutenberg-redis-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gutenberg-redis-service
+  labels:
+    app: redis-app
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: redis
+  clusterIP: None
+  selector:
+    app: redis-app
